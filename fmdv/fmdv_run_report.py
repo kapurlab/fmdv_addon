@@ -145,7 +145,7 @@ def main() -> int:
 
     ver = R.versions(project, lib, {})
     h.append("<h2>Method</h2>")
-    h.append(f"<div class='small'>Reads were mapped to the closest of {esc(ver.get('library'))}; the VP1 consensus was typed by blastn against {esc(ver.get('typing_db') or 'the GenBank VP1 sets')}. Pipeline vsnp_gui FMDV mode {esc(ver.get('fmdv_gui'))}. A lineage is provisional when no annotated record lies within 3% of the sample or the reads sit far from every library genome. The consensus carries substitutions only.</div>")
+    h.append(f"<div class='small'>Reads were mapped to the closest of {esc(ver.get('library'))}; the VP1 consensus was typed by blastn against {esc(ver.get('typing_db') or 'the GenBank VP1 sets')}. Pipeline: vsnp_gui FMDV add-on {esc(ver.get('fmdv_gui'))}. A lineage is provisional when no annotated record lies within 3% of the sample or the reads sit far from every library genome. The consensus carries substitutions only.</div>")
     h.append("</body></html>")
     page = "\n".join(h)
     root = layout.pathogen_root(project)

@@ -104,14 +104,14 @@ def latest_tree_run(project: Path, sample: str) -> Optional[Path]:
 def versions(project: Path, lib: Path, row: Dict) -> Dict[str, str]:
     out: Dict[str, str] = {}
     repo = HERE.parent
+    # The add-on's own version (addon.json) and the commit it runs from.
+    version = str(load_json(repo / "addon.json").get("version") or "?")
     try:
-        out["fmdv_gui"] = subprocess.run(["git", "-C", str(repo), "describe", "--tags", "--always", "--dirty"],
-                                         capture_output=True, text=True, timeout=10).stdout.strip() or (repo / "VERSION").read_text().strip()
+        commit = subprocess.run(["git", "-C", str(repo), "rev-parse", "--short", "HEAD"],
+                                capture_output=True, text=True, timeout=10).stdout.strip()
     except Exception:
-        try:
-            out["fmdv_gui"] = (repo / "VERSION").read_text().strip()
-        except OSError:
-            out["fmdv_gui"] = "unknown"
+        commit = ""
+    out["fmdv_gui"] = f"{version}" + (f" ({commit})" if commit else "")
     caller = str(row.get("SNP Caller") or "")
     out["caller"] = caller
     out["aligner"] = str(row.get("Aligner") or "")
@@ -502,7 +502,7 @@ def build(sample_dir: Path, lib: Path, project: Path) -> Tuple[str, Dict]:
         h.append(f"<div class='small muted'>VP1 consensus ({esc(sample)}):</div><pre class='seq'>&gt;{esc(sample)}_VP1\n{esc(vp1_seq)}</pre>")
 
     h.append("<h2>Method and versions</h2>")
-    h.append(kv([("Pipeline", f"vsnp_gui FMDV mode {esc(ver.get('fmdv_gui'))}; {esc(ver.get('aligner'))}; {esc(ver.get('caller'))}"),
+    h.append(kv([("Pipeline", f"vsnp_gui FMDV add-on {esc(ver.get('fmdv_gui'))}; {esc(ver.get('aligner'))}; {esc(ver.get('caller'))}"),
                  ("Reference library", esc(ver.get("library"))),
                  ("Typing database", esc(ver.get("typing_db") or "-") + "; " + esc(ver.get("context"))),
                  ("Reference choice", "competitive minimap2 of a read sample against the VP1 panel of the lineage genomes, whole genomes as fallback (after NanoFMDV, Shaw et al. 2025)"),

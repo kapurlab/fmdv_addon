@@ -1,35 +1,33 @@
-"""choose_reference: which vsnp3 reference this sample is aligned to.
+"""choose_reference: the closest FMDV lineage genome for this sample.
 
-Runs before vsnp3, once per sample. Writes reference.json naming a reference
-folder inside the library. If no reference fits, fail with the reason: the
-sample is then not aligned, and Step 1 Results shows why.
+Competitive minimap2 of the reads against the VP1 panel of the library's
+lineage genomes, within the project's scope (fmdv_choose_reference.py), with
+whole genomes as the fallback. Writes the chooser's record
+(fmdv_reference.json: the vote, the runner-up, identity, serotype share and
+the distant / mixed flags) beside reference.json.
 """
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
 import addon_sdk as sdk  # noqa: E402
-
-
-def candidates(ctx):
-    root = ctx.library / "reference_options"
-    return sorted(d for d in root.iterdir() if d.is_dir() and (d / f"{d.name}.fasta").is_file())
+import fmdv_run as F  # noqa: E402
 
 
 def main():
     ctx = sdk.load_context()
-    refs = candidates(ctx)
-    scope = ctx.scope or "all"
-    if scope.startswith("genome:"):
-        refs = [r for r in refs if r.name == scope.split(":", 1)[1]]
-    if not refs:
-        sdk.fail(f"no reference in scope {scope!r}", out=ctx.out_dir, name="reference.json")
-    # TODO(add-on author): choose by the reads (ctx.sample["reads"]), e.g. a
-    # competitive minimap2 vote over a marker panel; record the evidence
-    # (runner-up, identity, flags) as keyword details.
-    chosen = refs[0]
-    sdk.log(f"chose {chosen.name} (scope {scope})")
-    sdk.write_reference(ctx, chosen, method="template: first reference in scope", scope=scope)
+    out, s = ctx.out_dir, ctx.sample
+    p = F.run("fmdv_choose_reference.py", "--reads", *s["reads"], "--lib", ctx.library,
+              "--scope", ctx.scope or "FMDV", "--sample-dir", out, "--threads", ctx.threads, check=False)
+    rec = F.load(out / "fmdv_reference.json")
+    folder = p.stdout.strip().splitlines()[-1] if p.stdout.strip() else ""
+    if p.returncode != 0 or not folder:
+        sdk.fail(rec.get("error") or f"no lineage genome chosen (chooser exited {p.returncode})",
+                 out=out, name="reference.json")
+    chosen = rec.get("chosen") or {}
+    sdk.write_reference(ctx, Path(folder), serotype=chosen.get("serotype"), lineage=chosen.get("lineage"),
+                        identity=rec.get("identity"), distant=rec.get("distant"), mixed=rec.get("mixed"),
+                        runner_up=rec.get("runner_up"), method=rec.get("method"))
 
 
 if __name__ == "__main__":

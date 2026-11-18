@@ -5,16 +5,28 @@
   "name": "Foot-and-mouth disease virus",
   "version": "0.1.0",
   "consumer": "vsnp_gui",
-  "description": "Foot-and-mouth disease virus add-on for vsnp_gui: per-sample reference choice, a Results row and report per sample, and a run report.",
+  "description": "FMDV for vsnp_gui: each sample's reference is the closest of NanoFMDV's 79 lineage genomes (VP1 vote), primers clipped from ONT amplicon reads, a consensus and VP1 typing per sample against GenBank, VP1 trees with GenBank context, and reports for the outbreak team. From FMDV mode (kapurlab/vsnp_gui#14).",
   "env": "fmdv_addon",
   "sample_naming": "folder",
   "requires": {
-    "binaries": [],
-    "modules": []
+    "binaries": [
+      "minimap2",
+      "samtools",
+      "seqkit",
+      "blastn",
+      "makeblastdb",
+      "mafft"
+    ],
+    "modules": [
+      "Bio",
+      "openpyxl"
+    ]
   },
   "library": {
     "markers": [
       "LIBRARY_VERSION",
+      "lineages.json",
+      "panels/vp1.fasta",
       "reference_options",
       "scopes.json"
     ],
@@ -24,36 +36,95 @@
   "scopes": {
     "file": "scopes.json",
     "label": "Scope",
-    "default": "all"
+    "default": "FMDV"
   },
   "hooks": {
     "choose_reference": "hooks/choose_reference.py",
+    "prepare_reads": "hooks/prepare_reads.py",
     "after_sample": "hooks/after_sample.py",
     "after_run": "hooks/after_run.py"
   },
   "actions": [
     {
-      "id": "summary_table",
-      "label": "Summary table",
-      "description": "One table of every sample's add-on results.",
-      "command": "actions/summary_table.py",
+      "id": "vp1_tree",
+      "label": "Build VP1 tree",
+      "description": "One serotype's samples with the lineage panel and GenBank context (mafft + RAxML); rewrites the reports.",
+      "command": "actions/vp1_tree.py",
+      "params": [
+        {
+          "name": "serotype",
+          "label": "Serotype",
+          "choices_from": "metric:serotype",
+          "fixture": "SAT1"
+        }
+      ]
+    },
+    {
+      "id": "retype",
+      "label": "Type VP1 again",
+      "description": "blastn typing of every sample's VP1 consensus, then the reports.",
+      "command": "actions/retype.py",
       "params": []
     }
   ],
-  "qc_thresholds": {},
+  "qc_thresholds": {
+    "genome_coverage": {
+      "pass_min": 90.0,
+      "review_min": 70.0
+    },
+    "coverage": {
+      "pass_min": 100.0,
+      "review_min": 20.0
+    },
+    "mapping_rate": {
+      "pass_min": 20.0,
+      "review_min": null
+    },
+    "contamination_review": true
+  },
   "columns": [
     {
-      "key": "reference",
-      "label": "Reference"
+      "key": "serotype",
+      "label": "Serotype"
     },
     {
-      "key": "mean_depth",
-      "label": "Depth",
-      "unit": "x"
+      "key": "lineage",
+      "label": "Lineage"
+    },
+    {
+      "key": "topotype",
+      "label": "Topotype (VP1)"
+    },
+    {
+      "key": "vp1_lineage",
+      "label": "VP1 lineage"
+    },
+    {
+      "key": "vp1_identity",
+      "label": "VP1 identity",
+      "unit": "%"
+    },
+    {
+      "key": "identity",
+      "label": "Read identity"
+    },
+    {
+      "key": "genome_called",
+      "label": "Genome called",
+      "unit": "%"
+    },
+    {
+      "key": "vp1_called",
+      "label": "VP1 called",
+      "unit": "%"
+    },
+    {
+      "key": "vp1_nearest",
+      "label": "Nearest VP1 record"
     }
   ],
   "reports": {
-    "sample": "report.html",
-    "run": "run_report.html"
+    "sample": "{sample}_FMDV_report.html",
+    "run": "FMDV_run_report.html"
   }
 }
