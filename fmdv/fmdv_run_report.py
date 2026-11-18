@@ -28,6 +28,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import fmdv_sample_report as R  # noqa: E402
 import fmdv_vp1_tables as T  # noqa: E402
+import layout  # noqa: E402
 
 esc, pct, load_json = R.esc, R.pct, R.load_json
 
@@ -35,11 +36,8 @@ esc, pct, load_json = R.esc, R.pct, R.load_json
 def latest_serotype_runs(project: Path) -> Dict[str, Path]:
     """Newest VP1 tree run per serotype (runs restricted to one serotype)."""
     out: Dict[str, Path] = {}
-    step2 = project / "step2"
-    if not step2.is_dir():
-        return out
-    for d in sorted(step2.iterdir(), reverse=True):
-        m = re.search(r"_VP1-tree-([A-Za-z0-9]+)$", d.name)
+    for d in layout.tree_runs(project):
+        m = layout.TREE_SEROTYPE.search(d.name)
         if d.is_dir() and m and m.group(1) not in out and (d / "VP1" / "VP1_neighbourhood.tre").is_file():
             out[m.group(1)] = d
     return out
@@ -53,11 +51,8 @@ def main() -> int:
     a = ap.parse_args()
     project = Path(a.project).expanduser().resolve()
     lib = Path(a.lib).expanduser().resolve()
-    step1 = project / "step1"
-    dirs = sorted(d for d in step1.iterdir() if d.is_dir() and not d.name.startswith((".", "_"))
-                  and (d / "fmdv_reference.json").is_file()) if step1.is_dir() else []
-    proj = load_json(project / "project.json")
-    thr = proj.get("qc_thresholds") or {}
+    dirs = layout.sample_dirs(project)
+    thr = {}
 
     rows: List[Dict] = []
     for d in dirs:
@@ -65,7 +60,7 @@ def main() -> int:
         ref = load_json(d / "fmdv_reference.json"); typ = load_json(d / "fmdv_vp1_type.json")
         cons = load_json(d / "fmdv_consensus.json"); srow = R.stats_row(d, s)
         chosen = ref.get("chosen") or {}
-        verdict = None
+        verdict = load_json(d / "fmdv_qc.json").get("verdict") or None
         if R.compute_verdict and srow:
             r2 = dict(srow); reasons = []
             if ref.get("distant"): reasons.append("distant reference")
@@ -153,13 +148,15 @@ def main() -> int:
     h.append(f"<div class='small'>Reads were mapped to the closest of {esc(ver.get('library'))}; the VP1 consensus was typed by blastn against {esc(ver.get('typing_db') or 'the GenBank VP1 sets')}. Pipeline vsnp_gui FMDV mode {esc(ver.get('fmdv_gui'))}. A lineage is provisional when no annotated record lies within 3% of the sample or the reads sit far from every library genome. The consensus carries substitutions only.</div>")
     h.append("</body></html>")
     page = "\n".join(h)
-    out = project / "FMDV_run_report.html"
+    root = layout.pathogen_root(project)
+    root.mkdir(parents=True, exist_ok=True)
+    out = root / "FMDV_run_report.html"
     out.write_text(page)
     msg = f"run_report: {out}"
     if not a.no_pdf:
         try:
             from weasyprint import HTML  # type: ignore
-            HTML(string=page, base_url=str(project)).write_pdf(str(project / "FMDV_run_report.pdf"))
+            HTML(string=page, base_url=str(root)).write_pdf(str(root / "FMDV_run_report.pdf"))
             msg += " + pdf"
         except Exception as e:
             msg += f" (pdf failed: {e})"

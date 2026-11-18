@@ -106,7 +106,9 @@ def main() -> int:
         return 2
     project, nano = Path(a.project).expanduser(), Path(a.nanofmdv).expanduser()
     rows: List[Dict] = []
-    for d in sorted((project / "step1").iterdir()):
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import layout
+    for d in layout.sample_dirs(project, marker="fmdv_consensus.json"):
         s = d.name
         ours_fa, ours_js, ref_js = d / f"{s}_consensus.fasta", d / "fmdv_consensus.json", d / "fmdv_reference.json"
         nd = nano / s

@@ -285,9 +285,9 @@ def build_panels(lib: Path, vp1_src: Optional[Path]) -> None:
 
 
 def build(refs: Path, lib: Path, vp1: Optional[Path] = None) -> None:
+    # The chooser is minimap2 on the VP1 panel; the sourmash signatures are
+    # kept for comparison only, so a library builds without sourmash.
     sourmash = shutil.which("sourmash")
-    if not sourmash:
-        raise SystemExit("sourmash not on PATH (it is in the vsnp3 env)")
     (lib / "genomes").mkdir(parents=True, exist_ok=True)
     (lib / "signatures").mkdir(exist_ok=True)
     (lib / "reference_options").mkdir(exist_ok=True)
@@ -311,12 +311,13 @@ def build(refs: Path, lib: Path, vp1: Optional[Path] = None) -> None:
     (lib / "lineages.json").write_text(json.dumps(index, indent=1))
 
     sig = lib / "signatures" / "lineages.sig"
-    subprocess.run([sourmash, "sketch", "dna", "-p", "k=21,scaled=10,abund",
-                    "--singleton", "-o", str(sig), str(combined)],
-                   check=True, capture_output=True, text=True)
+    if sourmash:
+        subprocess.run([sourmash, "sketch", "dna", "-p", "k=21,scaled=10,abund",
+                        "--singleton", "-o", str(sig), str(combined)],
+                       check=True, capture_output=True, text=True)
     combined.unlink()
-    print(f"library built at {lib}: {len(genomes)} genomes, "
-          f"{len(tree)} serotypes, signatures in {sig.name}")
+    print(f"library built at {lib}: {len(genomes)} genomes, {len(tree)} serotypes"
+          + (f", signatures in {sig.name}" if sourmash else " (no sourmash: no signatures, not needed)"))
     build_panels(lib, vp1)
 
 

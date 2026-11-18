@@ -31,6 +31,9 @@ import shutil
 import subprocess
 import sys
 import time
+from pathlib import Path as _P
+sys.path.insert(0, str(_P(__file__).resolve().parent))
+import layout  # noqa: E402
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
@@ -265,9 +268,8 @@ def main() -> int:
     if a.sample_dir:
         dirs = [Path(a.sample_dir).resolve()]
     else:
-        step1 = Path(a.project).expanduser().resolve() / "step1"
-        dirs = sorted(d for d in step1.iterdir() if d.is_dir() and not d.name.startswith((".", "_"))
-                      and (d / f"{d.name}_VP1.fasta").is_file())
+        dirs = [d for d in layout.sample_dirs(Path(a.project).expanduser().resolve(), marker="fmdv_consensus.json")
+                if (d / f"{d.name}_VP1.fasta").is_file()]
     typed = 0
     for d in dirs:
         target = d / "fmdv_vp1_type.json"

@@ -1,4 +1,4 @@
-"""The reference-anchored consensus rules (bin/fmdv_consensus.py).
+"""The reference-anchored consensus rules (fmdv/fmdv_consensus.py).
 
 What these pin:
   * a vsnp3 ALT above QUAL 150 is applied; one at or under it becomes N, not
@@ -10,7 +10,7 @@ What these pin:
     skipped) and returns the plurality base with its count and depth;
   * VP1 coordinates come from the per-reference cache when it exists.
 
-    <conda>/bin/python backend/app/test_fmdv_consensus.py
+    env/bin/python tests/test_fmdv_consensus.py
 """
 from __future__ import annotations
 
@@ -21,8 +21,8 @@ import sys
 import tempfile
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent.parent
-spec = importlib.util.spec_from_file_location("fmdv_consensus", ROOT / "bin" / "fmdv_consensus.py")
+ROOT = Path(__file__).resolve().parent.parent
+spec = importlib.util.spec_from_file_location("fmdv_consensus", ROOT / "fmdv" / "fmdv_consensus.py")
 fc = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(fc)
 

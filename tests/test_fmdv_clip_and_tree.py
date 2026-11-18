@@ -1,5 +1,5 @@
-"""Primer placement (bin/fmdv_clip_primers.py) and VP1 tree inputs
-(bin/fmdv_vp1_tree.py), the parts that need no aligner.
+"""Primer placement (fmdv/fmdv_clip_primers.py) and VP1 tree inputs
+(fmdv/fmdv_vp1_tree.py), the parts that need no aligner.
 
 What these pin:
   * a primer is placed at its best window on either strand, IUPAC codes
@@ -11,7 +11,7 @@ What these pin:
     are Newick-safe, and sample collection honours the serotype filter and
     the VP1-called floor; the vp1_context hook is included only when present.
 
-    <conda>/bin/python backend/app/test_fmdv_clip_and_tree.py
+    env/bin/python tests/test_fmdv_clip_and_tree.py
 """
 from __future__ import annotations
 
@@ -21,11 +21,11 @@ import sys
 import tempfile
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent.parent
+ROOT = Path(__file__).resolve().parent.parent
 
 
 def load(name):
-    spec = importlib.util.spec_from_file_location(name, ROOT / "bin" / f"{name}.py")
+    spec = importlib.util.spec_from_file_location(name, ROOT / "fmdv" / f"{name}.py")
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod
@@ -89,11 +89,11 @@ def test_collect_samples_and_panel():
     with tempfile.TemporaryDirectory() as td:
         project = Path(td) / "proj"
         for name, ref, called in (("S1", "SAT1-I_K", 100.0), ("S2", "SAT1-I_K", 20.0), ("A1", "A-NA_X", 99.0)):
-            d = project / "step1" / name
+            d = project / "pathogen" / "fmdv" / "samples" / name
             d.mkdir(parents=True)
             (d / "fmdv_consensus.json").write_text(json.dumps({"reference": ref, "vp1_called_percent": called}))
             (d / f"{name}_VP1.fasta").write_text(f">{name} VP1\nACGTACGT\n")
-        (project / "step1" / "noVP1").mkdir()
+        (project / "pathogen" / "fmdv" / "samples" / "noVP1").mkdir()
         seqs, report = tree.collect_samples(project, "SAT1", 50.0)
         check([s for s, _ in seqs], ["S1"], "SAT1 filter keeps S1; S2 is under the called floor; A1 is another serotype")
         reasons = {r["sample"]: r["reason"] for r in report}

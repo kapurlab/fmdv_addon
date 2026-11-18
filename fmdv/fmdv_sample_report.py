@@ -15,7 +15,7 @@ sample finishes. Reads only what the sample folder and the latest such tree
 run hold; writes <sample>_FMDV_report.html and .pdf beside them. PDF needs
 weasyprint (in the vsnp3 env); without it the HTML is still written.
 
-    fmdv_sample_report.py --sample-dir <step1/sample> --lib <library>
+    fmdv_sample_report.py --sample-dir <project>/pathogen/fmdv/samples/<sample> --lib <library>
     fmdv_sample_report.py --project <project> --lib <library> [--samples a b]
 """
 from __future__ import annotations
@@ -34,18 +34,16 @@ from typing import Dict, List, Optional, Tuple
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
-sys.path.insert(0, str(HERE.parent / "backend" / "app"))
 
 import fmdv_vp1_tables as T  # noqa: E402  (Newick, fasta, metadata, translation)
+import layout  # noqa: E402
 
-try:
-    from qc_verdict import compute_verdict, merge_thresholds  # noqa: E402
-except Exception:  # the backend is not beside bin/: no verdict, numbers only
-    compute_verdict = merge_thresholds = None
-try:
-    from qc_scan import _read_stats_row  # noqa: E402
-except Exception:
-    _read_stats_row = None
+# The add-on never imports vsnp_gui: the QC row and the verdict vsnp_gui
+# computed for the sample (its thresholds, the add-on's layer included, and
+# the add-on's own flags) arrive in the hook's context and are kept beside the
+# sample's other files as fmdv_qc.json (hooks/after_sample.py).
+compute_verdict = merge_thresholds = None
+_read_stats_row = None
 
 
 def _err(msg: str) -> None:
@@ -70,6 +68,9 @@ def pct(v, nd=1) -> str:
 # ---- inputs ---------------------------------------------------------------
 
 def stats_row(sample_dir: Path, sample: str) -> Dict:
+    qc = load_json(sample_dir / "fmdv_qc.json")
+    if qc.get("row"):
+        return qc["row"]
     files = sorted(sample_dir.glob(f"{sample}_*_stats.xlsx"), key=lambda p: p.stat().st_mtime)
     if not files:
         return {}
@@ -88,16 +89,13 @@ def latest_tree_run(project: Path, sample: str) -> Optional[Path]:
     neighbourhood and tree are the serotype's, which is what a report
     shows; the all-serotype tree carries every other serotype's
     representatives and runs off the page."""
-    step2 = project / "step2"
-    if not step2.is_dir():
-        return None
-    runs = sorted((d for d in step2.iterdir() if d.is_dir() and "_VP1-tree" in d.name), reverse=True)
+    runs = layout.tree_runs(project)
     fallback = None
     for r in runs:
         j = load_json(r / "VP1" / "vp1_tables.json")
         if sample not in (j.get("samples") or []):
             continue
-        if re.search(r"_VP1-tree-[A-Za-z0-9]+$", r.name):
+        if layout.TREE_SEROTYPE.search(r.name):
             return r
         fallback = fallback or r
     return fallback
@@ -344,15 +342,15 @@ def build(sample_dir: Path, lib: Path, project: Path) -> Tuple[str, Dict]:
     typ = load_json(sample_dir / "fmdv_vp1_type.json")
     cons = load_json(sample_dir / "fmdv_consensus.json")
     row = stats_row(sample_dir, sample)
-    proj = load_json(project / "project.json")
-    thr = proj.get("qc_thresholds") or {}
+    qc = load_json(sample_dir / "fmdv_qc.json")
+    thr = qc.get("thresholds") or {}
     chosen = ref.get("chosen") or {}
     run = latest_tree_run(project, sample)
     meta = T.load_meta(lib)
     ver = versions(project, lib, row)
 
     # verdict, as the GUI computes it
-    verdict = None
+    verdict = qc.get("verdict") or None
     if compute_verdict and row:
         r2 = dict(row)
         reasons = []
@@ -528,12 +526,10 @@ def main() -> int:
     lib = Path(a.lib).expanduser().resolve()
     if a.sample_dir:
         dirs = [Path(a.sample_dir).resolve()]
-        project = dirs[0].parent.parent
+        project = layout.project_of(dirs[0])
     else:
         project = Path(a.project).expanduser().resolve()
-        step1 = project / "step1"
-        dirs = sorted(d for d in step1.iterdir() if d.is_dir() and not d.name.startswith((".", "_"))
-                      and (d / "fmdv_reference.json").is_file() and (not a.samples or d.name in a.samples))
+        dirs = layout.sample_dirs(project, a.samples)
     try:
         from weasyprint import HTML  # type: ignore
     except Exception:

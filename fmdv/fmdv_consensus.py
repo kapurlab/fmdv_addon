@@ -231,7 +231,10 @@ def vp1_coords(lib: Path, ref_safe: str, ref_fa: Path, aln_dir: Path) -> Optiona
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--sample-dir", required=True, help="step1/<sample>")
+    ap.add_argument("--sample-dir", required=True, help="the vsnp3 Step 1 folder of the sample (read only)")
+    ap.add_argument("--out-dir", help="where the consensus, VP1 slice and fmdv_consensus.json go "
+                                      "(default: the sample folder)")
+    ap.add_argument("--sample", help="the sample's name (default: the out folder's name)")
     ap.add_argument("--lib", help="FMDV reference library, for the VP1 panel")
     ap.add_argument("--min-depth", type=int, default=MIN_DEPTH)
     ap.add_argument("--alt-qual", type=float, default=ALT_QUAL)
@@ -241,7 +244,9 @@ def main() -> int:
     a = ap.parse_args()
 
     sample_dir = Path(a.sample_dir).resolve()
-    sample = sample_dir.name
+    out_dir = Path(a.out_dir).resolve() if a.out_dir else sample_dir
+    out_dir.mkdir(parents=True, exist_ok=True)
+    sample = a.sample or out_dir.name
     aln = next((d for d in sorted(sample_dir.glob("alignment_*")) if d.is_dir()), None)
     if aln is None:
         _err(f"consensus: no alignment_* folder in {sample_dir}"); return 2
@@ -285,15 +290,15 @@ def main() -> int:
                 bases[pos - 1] = new
     cons = "".join(bases)
 
-    out_fa = aln.parent / f"{sample}_consensus.fasta"
+    out_fa = out_dir / f"{sample}_consensus.fasta"
     write_fasta(out_fa, f"{sample} ref={aln.name.replace('alignment_', '')}", cons)
     n_count = cons.count("N")
     vp1: Dict = {}
     if a.lib:
-        coords = vp1_coords(Path(a.lib).expanduser(), aln.name.replace("alignment_", ""), ref_fa, aln)
+        coords = vp1_coords(Path(a.lib).expanduser(), aln.name.replace("alignment_", ""), ref_fa, out_dir)
         if coords:
             seg = cons[coords["start"] - 1:coords["end"]]
-            vp1_fa = aln.parent / f"{sample}_VP1.fasta"
+            vp1_fa = out_dir / f"{sample}_VP1.fasta"
             write_fasta(vp1_fa, f"{sample} VP1 {chrom}:{coords['start']}-{coords['end']}", seg)
             vp1 = {"vp1_start": coords["start"], "vp1_end": coords["end"], "vp1_length": len(seg),
                    "vp1_called_percent": round(100.0 * (len(seg) - seg.count("N")) / len(seg), 2) if seg else 0.0,
@@ -315,7 +320,7 @@ def main() -> int:
         "written": time.strftime("%Y-%m-%dT%H:%M:%S"),
         **vp1,
     }
-    (sample_dir / "fmdv_consensus.json").write_text(json.dumps(result, indent=1))
+    (out_dir / "fmdv_consensus.json").write_text(json.dumps(result, indent=1))
     _err(f"consensus: {sample} {len(cons)} nt, {result['called_percent']}% called, "
          f"{result['substitutions']} substitutions, {ambiguous} ambiguous to N, {len(overrides)} pileup overrides"
          + (f", VP1 {vp1['vp1_length']} nt {vp1['vp1_called_percent']}% called" if vp1 else ""))

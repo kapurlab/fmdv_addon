@@ -1,5 +1,5 @@
 """The mature protein boundaries and the rewritten reference records
-(bin/fmdv_proteins.py).
+(fmdv/fmdv_proteins.py).
 
 What these pin:
   * the eight spellings NCBI uses for the 12 FMDV proteins map to one name
@@ -13,7 +13,7 @@ What these pin:
     3D running to the stop codon, and the GFF carrying the same 12 lines on
     the bare accession.
 
-    <conda>/bin/python backend/app/test_fmdv_proteins.py
+    env/bin/python tests/test_fmdv_proteins.py
 """
 from __future__ import annotations
 
@@ -23,8 +23,8 @@ import random
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent.parent
-spec = importlib.util.spec_from_file_location("fmdv_proteins", ROOT / "bin" / "fmdv_proteins.py")
+ROOT = Path(__file__).resolve().parent.parent
+spec = importlib.util.spec_from_file_location("fmdv_proteins", ROOT / "fmdv" / "fmdv_proteins.py")
 fp = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(fp)
 

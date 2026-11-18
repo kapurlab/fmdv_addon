@@ -43,6 +43,9 @@ import shutil
 import subprocess
 import sys
 import time
+from pathlib import Path as _P
+sys.path.insert(0, str(_P(__file__).resolve().parent))
+import layout  # noqa: E402
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
@@ -208,7 +211,7 @@ def select_context(sero: str, records: List[Tuple[str, str]], meta: Dict[str, Di
 def collect_samples(project: Path, serotype: Optional[str], min_called: float) -> Tuple[List[Tuple[str, str]], List[Dict]]:
     seqs: List[Tuple[str, str]] = []
     report: List[Dict] = []
-    for d in sorted((project / "step1").iterdir()) if (project / "step1").is_dir() else []:
+    for d in layout.sample_dirs(project, marker="fmdv_consensus.json"):
         if not d.is_dir():
             continue
         js = d / "fmdv_consensus.json"
@@ -348,7 +351,7 @@ def main() -> int:
     focus_by_sero: Dict[str, set] = {}
     if a.context == "typed":
         for name, _ in samples:
-            tj = project / "step1" / name / "fmdv_vp1_type.json"
+            tj = layout.samples_root(project) / name / "fmdv_vp1_type.json"
             try:
                 t = json.loads(tj.read_text()) if tj.is_file() else {}
             except (OSError, ValueError):
@@ -373,7 +376,7 @@ def main() -> int:
     stamp = time.strftime("%Y-%m-%d_%H-%M-%S")
     started_at = time.strftime("%Y-%m-%dT%H:%M:%S")
     # Stamp first: the Step 2 run list accepts <stamp><label> folders only.
-    out_root = Path(a.out).expanduser() if a.out else project / "step2" / (f"{stamp}_VP1-tree" + (f"-{serotype}" if serotype else ""))
+    out_root = Path(a.out).expanduser() if a.out else layout.runs_root(project) / (f"{stamp}_VP1-tree" + (f"-{serotype}" if serotype else ""))
     out_dir = out_root / "VP1"
     out_dir.mkdir(parents=True, exist_ok=True)
     log = out_dir / "vp1_tree.log"
