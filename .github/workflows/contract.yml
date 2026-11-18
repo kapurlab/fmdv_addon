@@ -11,7 +11,9 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: kapurlab/vsnp_gui
-          ref: ${{ vars.VSNP_GUI_REF || 'main' }}
+          # pathogen-addons until kapurlab/vsnp_gui#15 (the add-on framework) is on
+          # main; switch back to main at the first release.
+          ref: ${{ vars.VSNP_GUI_REF || 'pathogen-addons' }}
           path: vsnp_gui
       - uses: conda-incubator/setup-miniconda@v3
         with:
